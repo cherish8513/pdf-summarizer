@@ -8,7 +8,7 @@ from src.pdf_summarizer.models.schemas import SummaryResponse
 router = APIRouter()
 
 
-@router.post("/api/summarize", response_model=SummaryResponse)
+@router.post("/summarize", response_model=SummaryResponse)
 async def summarize(file: UploadFile = File(requried = True)):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
