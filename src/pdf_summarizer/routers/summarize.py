@@ -4,6 +4,7 @@ import os
 import tempfile
 
 from src.pdf_summarizer.models.schemas import SummaryResponse
+from src.pdf_summarizer.services.summarizer import pdf_summarize
 
 router = APIRouter()
 
@@ -15,13 +16,8 @@ async def summarize(file: UploadFile = File(requried = True)):
             contents = await file.read()
             tmp.write(contents)
             temp_path = tmp.name
-        # TODO: pdf to text
-        # TODO: sLLM 연동
-        return {
-            "title": "요약 결과",
-            "summary": "이 문서는 학습 노트 생성을 위한 테스트 문서입니다.",
-            "keywords": ["요약", "노트", "FastAPI"]
-        }
+
+        return pdf_summarize(temp_path)
 
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)

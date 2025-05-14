@@ -3,14 +3,19 @@ name = "pdf-summarizer"
 version = "0.1.0"
 description = ""
 authors = [
-    {name = "Your Name",email = "you@example.com"}
+    {name = "JooHeonJeong",email = "cherish8513@gihub.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.9,<4.0"
 dependencies = [
     "fastapi (>=0.115.12,<0.116.0)",
     "uvicorn (>=0.34.2,<0.35.0)",
-    "python-multipart (>=0.0.20,<0.0.21)"
+    "python-multipart (>=0.0.20,<0.0.21)",
+    "python-dotenv (>=1.1.0,<2.0.0)",
+    "langchain-openai (>=0.3.16,<0.4.0)",
+    "langchain (>=0.3.25,<0.4.0)",
+    "langchain-community (>=0.3.24,<0.4.0)",
+    "pypdf (>=5.5.0,<6.0.0)",
 ]
 
 [tool.poetry]
