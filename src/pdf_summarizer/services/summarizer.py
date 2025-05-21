@@ -2,87 +2,57 @@ import os
 import re
 
 from dotenv import load_dotenv
-from langchain.chains.summarize import load_summarize_chain
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 from langchain.prompts import PromptTemplate
+from langchain_community.llms import HuggingFacePipeline
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.vectorstores import FAISS
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 
-from src.pdf_summarizer.models.schemas import SummaryResponse
+from pdf_summarizer.models.schemas import SummaryResponse
+from pdf_summarizer.models.type import Type
 
 load_dotenv()
 
-llm = ChatOpenAI(
-    temperature=os.getenv("OPENAI_TEMPERATURE"),
-    model_name=os.getenv("OPENAI_MODEL_NAME"),  # 모델명
-)
+model_id = "microsoft/phi-2"
+tokenizer = AutoTokenizer.from_pretrained(model_id, token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"))
+model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto", token=os.getenv("HUGGINGFACE_ACCESS_TOKEN"))
+hf_pipeline = pipeline("text-generation", model=model, tokenizer=tokenizer, max_new_tokens=300)
+llm = HuggingFacePipeline(pipeline=hf_pipeline)
 
-embeddings = OpenAIEmbeddings()
-
-
-def pdf_summarize(file_path: str) -> SummaryResponse:
+def pdf_summarize(file_path):
     loader = PyPDFLoader(file_path)
     pages = loader.load()
-
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=200,
-        length_function=len
-    )
-
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = text_splitter.split_documents(pages)
 
-    vector_store = FAISS.from_documents(chunks, embeddings)
+    prompt_template = f"""[INST] 다음 내용을 요약해줘:\n{Type.TEXT.value}\n[/INST]"""
+    prompt = PromptTemplate(input_variables=[Type.TEXT.value], template=prompt_template)
 
-    map_prompt_template = """다음은 긴 문서의 일부입니다:
-    {text}
+    summaries = []
+    for chunk in chunks:
+        chunk_text = chunk.page_content
+        formatted_prompt = prompt.format(text=chunk_text)
+        summary = llm(formatted_prompt)
+        summaries.append(summary.strip())
 
-    이 부분의 핵심 내용을 100단어 이내로 요약해주세요.
-    """
+    # 전체 요약 결합
+    combined_summary = "\n\n".join([f"부분 {i+1} 요약:\n{summary}" for i, summary in enumerate(summaries)])
 
-    map_prompt = PromptTemplate(
-        template=map_prompt_template,
-        input_variables=["text"]
-    )
+    # 전체 문서 요약 생성
+    final_prompt_template = f"""[INST] 다음은 문서의 각 부분 요약입니다:\n{Type.TEXT.value}\n\n전체 문서의 내용을 500단어 이내로 요약하고, 제목을 추정하고, 주요 키워드 5개를 추출해줘.\n응답 형식:\n제목: [제목]\n요약: [요약 내용]\n키워드: [키워드1, 키워드2, 키워드3, 키워드4, 키워드5] [/INST]"""
+    final_prompt = PromptTemplate(input_variables=[Type.TEXT.value], template=final_prompt_template)
+    formatted_final_prompt = final_prompt.format(text=combined_summary)
 
-    combine_prompt_template = """다음은 문서의 각 부분에 대한 요약입니다:
-    {text}
+    final_output = llm(formatted_final_prompt)
+    final_text = final_output.strip()
 
-    이 요약들을 바탕으로 전체 문서의 내용을 500단어 이내로 요약하고, 문서의 제목을 추정하여 제공해주세요.
-    또한 문서의 주요 키워드 5개를 추출해주세요.
+    title_match = re.search(r'제목:\s*(.*?)(?=\n요약:|$)', final_text, re.DOTALL)
+    summary_match = re.search(r'요약:\s*(.*?)(?=\n키워드:|$)', final_text, re.DOTALL)
+    keywords_match = re.search(r'키워드:\s*(.*?)$', final_text, re.DOTALL)
 
-    다음 형식으로 응답해주세요:
-    제목: [문서의 추정 제목]
-    요약: [문서의 요약 내용]
-    키워드: [키워드1, 키워드2, 키워드3, 키워드4, 키워드5]
-    """
-
-    combine_prompt = PromptTemplate(
-        template=combine_prompt_template,
-        input_variables=["text"]
-    )
-
-    chain = load_summarize_chain(
-        llm,
-        chain_type="map_reduce",
-        map_prompt=map_prompt,
-        combine_prompt=combine_prompt,
-        verbose=False
-    )
-
-    result = chain.run(chunks)
-
-    title_match = re.search(r'제목:\s*(.*?)(?=\n요약:|$)', result, re.DOTALL)
-    summary_match = re.search(r'요약:\s*(.*?)(?=\n키워드:|$)', result, re.DOTALL)
-    keywords_match = re.search(r'키워드:\s*(.*?)$', result, re.DOTALL)
-
-    title = title_match.group(1).strip() if title_match else "요약 문서"
-    summary = summary_match.group(1).strip() if summary_match else result
-
-    keywords_str = keywords_match.group(1).strip() if keywords_match else ""
-    keywords_str = re.sub(r'[\[\]]', '', keywords_str)
-    keywords = [k.strip() for k in keywords_str.split(',')]
+    title = title_match.group(1).strip() if title_match else "제목 없음"
+    summary = summary_match.group(1).strip() if summary_match else final_text
+    keywords = [kw.strip() for kw in re.sub(r'[\[\]]', '', keywords_match.group(1)).split(',')] if keywords_match else []
 
     return SummaryResponse(
         title=title,
