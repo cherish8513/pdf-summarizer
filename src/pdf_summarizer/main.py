@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
+
 from src.pdf_summarizer.routers import summarize
 
 app = FastAPI()
