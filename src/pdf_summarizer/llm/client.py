@@ -19,8 +19,8 @@ class LLMClient:
             max_tokens=settings.llm_max_tokens,
         )
 
-    @traceable(name="llm_ask")
-    async def ask(self, messages: List[BaseMessage]) -> str:
+    @traceable(name="llm_invoke")
+    async def invoke(self, messages: List[BaseMessage]) -> str:
         try:
             response = await asyncio.to_thread(
                 self.llm.invoke,
@@ -29,8 +29,3 @@ class LLMClient:
             return response.content.strip()
         except Exception as e:
             raise Exception(f"LLM ask failed: {str(e)}") from e
-
-    @traceable(name="llm_ask_simple")
-    async def ask_simple(self, prompt: str) -> str:
-        message = HumanMessage(content=prompt)
-        return await self.ask([message])
