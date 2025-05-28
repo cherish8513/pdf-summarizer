@@ -3,13 +3,14 @@ import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, HTTPException, Body
 
 from middlewares.langsmith_trace import langsmith_trace
-from models.schemas import SummaryResponse, ErrorResponse
+from routers.request.question_request import QuestionRequest
 from services.pdf_chat_service import PdfChatService
 
 router = APIRouter()
+chat_service = PdfChatService()
 
 
 @asynccontextmanager
@@ -44,14 +45,7 @@ def validate_file_content(contents: bytes) -> None:
         )
 
 
-@router.post(
-    "/upload",
-    response_model=SummaryResponse,
-    responses={
-        500: {"model": ErrorResponse, "description": "Internal server error"},
-        400: {"model": ErrorResponse, "description": "Bad request"}
-    }
-)
+@router.post("/upload", )
 @langsmith_trace(name="Upload Router", tags=["router", "upload"])
 async def upload(file: UploadFile = File(...)):
     validate_pdf_file(file)
@@ -61,8 +55,13 @@ async def upload(file: UploadFile = File(...)):
 
     async with temporary_pdf_file(contents) as temp_path:
         try:
-            chat_service = PdfChatService()
             await chat_service.upload(pdf_file_path=temp_path)
             return {"message": "PDF uploaded and processed successfully."}
         except Exception as e:
             raise HTTPException(status_code=500, detail={"error": "Unexpected error occurred", "details": str(e)})
+
+
+@router.post("/ask", response_model=dict[str, str])
+@langsmith_trace(name="Ask Router", tags=["router", "ask"])
+async def ask(question_request: QuestionRequest) -> dict[str, str]:
+    return await chat_service.ask(question_request.question)

@@ -4,9 +4,6 @@ from dotenv import load_dotenv
 
 
 class ClientConfig:
-    """
-    환경 변수를 로드하고 관리하는 싱글턴 설정 클래스
-    """
     _instance: Optional['ClientConfig'] = None
     _initialized: bool = False
 
@@ -24,21 +21,19 @@ class ClientConfig:
         """환경 변수 로드 및 설정 초기화"""
         load_dotenv()
 
-        # LANGSMITH 설정
-        self.langsmith_tracing: bool = self._get_bool_env('LANGSMITH_TRACING', False)
-        self.langsmith_endpoint: str = os.getenv('LANGSMITH_ENDPOINT', 'https://api.smith.langchain.com')
-        self.langsmith_api_key: str = os.getenv('LANGSMITH_API_KEY', '')
-        self.langsmith_project: str = os.getenv('LANGSMITH_PROJECT', 'PDF_SUMMARIZER')
-
         # LLM 설정
         self.groq_api_key: str = os.getenv('GROQ_API_KEY', '')
-        self.groq_api_url: str = os.getenv('GORQ_API_URL', 'https://api.groq.com/openai/v1')
-        self.groq_api_model: str = os.getenv('GROQ_API_MODEL', '')
+        self.groq_api_base: str = os.getenv('GORQ_API_BASE', 'https://api.groq.com/openai/v1')
+        self.llm_model: str = os.getenv('LLM_MODEL', '')
+        self.llm_temperature: float = self._get_float_env('LLM_TEMPERATURE', 0.2)
+        self.llm_max_tokens: int = self._get_int_env('LLM_MAX_TOKENS', 100)
 
         # 임베딩 모델 설정
         self.embedding_model: str = os.getenv('EMBEDDING_MODEL', '')
 
         # 텍스트 처리 설정
+        self.chunk_size: int = self._get_int_env('CHUNK_SIZE', 1000)
+        self.chunk_overlap: int = self._get_int_env('CHUNK_OVERLAP', 50)
         self.max_tfidf_features: int = self._get_int_env('MAX_TFIDF_FEATURES', 5000)
         self.ngram_range: Tuple[int, int] = self._parse_ngram_range(os.getenv('NGRAM_RANGE', '1,2'))
         self.min_df: int = self._get_int_env('MIN_DF', 1)
@@ -52,6 +47,7 @@ class ClientConfig:
 
         # 검색 설정
         self.default_k: int = self._get_int_env('DEFAULT_K', 4)
+        self.search_type: str = os.getenv('SEARCH_TYPE', 'similarity')
         self.search_multiplier: int = self._get_int_env('SEARCH_MULTIPLIER', 2)
         self.semantic_weight: float = self._get_float_env('SEMANTIC_WEIGHT', 0.7)
         self.min_chunk_length: int = self._get_int_env('MIN_CHUNK_LENGTH', 30)

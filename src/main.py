@@ -1,9 +1,9 @@
 import uvicorn
 from fastapi import FastAPI
 
-from pdf_summarizer.middlewares.config import settings
-from pdf_summarizer.middlewares.langsmith import create_langsmith_middleware
-from src.pdf_summarizer.routers import summarize
+from middlewares.config import settings
+from middlewares.langsmith_tracing_middleware import LangSmithTracingMiddleware
+from routers import pdf_chat
 
 app = FastAPI(
     title="PDF Summarizer API",
@@ -11,13 +11,13 @@ app = FastAPI(
     version="1.0.0"
 )
 
-LangSmithMiddleware = create_langsmith_middleware(
+app.add_middleware(
+    LangSmithTracingMiddleware,
     langsmith_enabled=settings.langsmith_tracing,
     project_name=settings.langsmith_project
 )
-app.add_middleware(LangSmithMiddleware)
 
-app.include_router(summarize.router, prefix="/api")
+app.include_router(pdf_chat.router, prefix="/api")
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
