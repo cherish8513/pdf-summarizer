@@ -1,3 +1,9 @@
+0.0.5
+- rag pipeline 추가, pdf 요약 api를 단발성 Q&A 형태로 변경
+- Q&A api를 stream 형식으로 변경
+- 관심사 분리
+- langsmith trace를 도입
+
 0.0.4 
 - langsmith 도입 langsmith로 인한 서비스 코드 변경 최소화를 위해 langchain의 Runnable 체인 사용
 
