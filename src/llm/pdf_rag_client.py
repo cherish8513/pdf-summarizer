@@ -1,10 +1,12 @@
+from typing import AsyncGenerator
+
 from langchain_community.vectorstores import FAISS
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import RunnablePassthrough
-from langsmith import traceable
 
 from llm.config import config
+from middlewares.langsmith_trace import langsmith_trace
 
 
 class PdfNotLoadedError(Exception):
@@ -22,7 +24,7 @@ class PdfRagClient:
         self.pdf_loader = pdf_loader
         self.embeddings = embeddings
 
-    @traceable(name="pdf_load", tags=["pdf", "vectorize"])
+    @langsmith_trace(name="pdf_load", tags=["pdf", "vectorize"])
     async def pdf_load(self, file_path: str):
         self.retriever = None
         try:
@@ -41,14 +43,14 @@ class PdfRagClient:
             raise pe
         except Exception as e:
             raise PdfProcessingError(
-                f"pdf '{file_path}' unexpected error occurred: {e}") from e  # 원본 예외(e)를 포함하여 예외 체이닝
+                f"pdf '{file_path}' unexpected error occurred: {e}") from e
 
-    @traceable(name="invoke", tags=["query", "llm"])
-    async def invoke(self, question: str) -> str:
+    # @langsmith_trace(name="stream", tags=["query", "llm", "stream"])
+    async def stream(self, question: str) -> AsyncGenerator[str, None]:
         if self.retriever is None:
             raise PdfNotLoadedError("PDF file not loaded.")
 
-        prompt = PromptTemplate.from_template(
+        prompt_template = PromptTemplate.from_template(
             """You are an assistant for question-answering tasks.\n
             Use the following pieces of retrieved context to answer the question.\n
             If you don't know the answer, just say that you don't know. \n
@@ -65,10 +67,10 @@ class PdfRagClient:
 
         chain = (
                 {"context": self.retriever, "question": RunnablePassthrough()}
-                | prompt
+                | prompt_template
                 | self.llm
                 | StrOutputParser()
         )
 
-        result = await chain.ainvoke(question)
-        return result
+        async for chunk in chain.astream(question):
+            yield chunk

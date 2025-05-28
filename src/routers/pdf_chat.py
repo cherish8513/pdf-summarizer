@@ -3,7 +3,8 @@ import tempfile
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Body
+from fastapi import APIRouter, UploadFile, File, HTTPException
+from starlette.responses import StreamingResponse
 
 from middlewares.langsmith_trace import langsmith_trace
 from routers.request.question_request import QuestionRequest
@@ -61,7 +62,7 @@ async def upload(file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail={"error": "Unexpected error occurred", "details": str(e)})
 
 
-@router.post("/ask", response_model=dict[str, str])
-@langsmith_trace(name="Ask Router", tags=["router", "ask"])
-async def ask(question_request: QuestionRequest) -> dict[str, str]:
-    return await chat_service.ask(question_request.question)
+@router.post("/question")
+# @langsmith_trace(name="Question Stream", tags=["router", "question", "stream"])
+async def question(question_request: QuestionRequest):
+    return StreamingResponse(chat_service.question(question_request.question), media_type="text/event-stream")
