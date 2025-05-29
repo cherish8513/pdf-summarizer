@@ -5,7 +5,7 @@
 - langsmith trace를 도입
 
 0.0.4 
-- langsmith 도입 langsmith로 인한 서비스 코드 변경 최소화를 위해 langchain의 Runnable 체인 사용
+- langchain의 Runnable 체인으로 프롬포트 연결
 
 0.0.3 
 - 모델의 비용 문제로 gpt-3.5 turbo에서 llama3로 변경
